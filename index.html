@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>つみあげスタンプ</title>
+<meta name="description" content="目標を決めて毎日スタンプ。月替わりの絵がパズルのように現れる、続けたくなる目標達成アプリ。">
+<meta name="theme-color" content="#D23C35">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="つみあげ">
+<style>html{color-scheme:light}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<style>
+/* Layout: one narrow column — goal & progress on top, today's stamp button, then a 7-col calendar that doubles as a monthly picture puzzle */
+:root{
+  --bg:#EEF1F6; --surface:#FFFFFF; --ink:#18202F; --muted:#5D677A; --line:#D9DEE8;
+  --stamp:#D23C35; --stamp-soft:#FBE3E1; --blue:#2C5BC4; --cover:#DCE2EC; --cover-2:#D2D9E5;
+  --good:#1F8A5B;
+  --f-display:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
+  --f-body:"Noto Sans JP","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --r:16px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11141B; --surface:#1A1F29; --ink:#E9EDF4; --muted:#9AA3B5; --line:#2A3140;
+  --stamp:#F0615A; --stamp-soft:#3A2023; --blue:#7FA3F5; --cover:#252B37; --cover-2:#2C3341; --good:#4CC28B; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#11141B; --surface:#1A1F29; --ink:#E9EDF4; --muted:#9AA3B5; --line:#2A3140;
+  --stamp:#F0615A; --stamp-soft:#3A2023; --blue:#7FA3F5; --cover:#252B37; --cover-2:#2C3341; --good:#4CC28B; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6;padding:20px 16px 48px}
+.wrap{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1,h2,.num{font-family:var(--f-display)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-family:var(--f-display);font-weight:900;font-size:15px;letter-spacing:.08em;color:var(--muted)}
+.brand b{color:var(--stamp)}
+.save-note{font-size:12px;color:var(--muted)}
+
+/* goal card */
+.goal{background:var(--surface);border-radius:var(--r);padding:20px;display:flex;flex-direction:column;gap:14px;border:1px solid var(--line)}
+.goal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--muted)}
+.goal-text{font-family:var(--f-display);font-weight:900;font-size:clamp(22px,6vw,28px);line-height:1.35;text-wrap:balance;word-break:break-word;margin-top:2px}
+.ghost{background:none;border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:13px;color:var(--muted);flex-shrink:0}
+.stats{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px}
+.stat{display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat .k{font-size:12px;color:var(--muted)}
+.stat .v{font-family:var(--f-display);font-weight:900;font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat .v small{font-size:13px;font-weight:700;color:var(--muted);margin-left:2px}
+.v.fire{color:var(--stamp)}
+.bar{height:10px;border-radius:999px;background:var(--cover);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--stamp);border-radius:999px;width:0;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.bar.done i{background:var(--good)}
+.bar-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:-6px}
+
+/* goal form */
+.form{display:flex;flex-direction:column;gap:12px}
+.form label{font-size:13px;font-weight:700;color:var(--muted)}
+.form input,.form select{width:100%;font:inherit;font-size:16px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 140px}
+
+/* today CTA */
+.cta{border:none;border-radius:var(--r);padding:18px 20px;background:var(--stamp);color:#fff;font-family:var(--f-display);font-weight:900;font-size:19px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 6px 0 color-mix(in srgb,var(--stamp) 60%,#000);transition:transform .1s, box-shadow .1s}
+.cta:active{transform:translateY(4px);box-shadow:0 2px 0 color-mix(in srgb,var(--stamp) 60%,#000)}
+.cta.done{background:var(--surface);color:var(--good);border:2px solid var(--good);box-shadow:none;font-size:16px}
+.cta svg{width:26px;height:26px}
+
+/* calendar */
+.cal{background:var(--surface);border-radius:var(--r);padding:16px;border:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+.cal-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cal-title{display:flex;flex-direction:column;min-width:0}
+.cal-title h2{margin:0;font-size:22px;font-weight:900;line-height:1.2}
+.cal-title span{font-size:13px;color:var(--muted)}
+.nav{display:flex;gap:6px}
+.nav button{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--bg);font-size:16px;display:grid;place-items:center}
+.nav button:disabled{opacity:.3;cursor:default}
+.dow,.grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.dow span{text-align:center;font-size:12px;font-weight:700;color:var(--muted)}
+.dow span:first-child{color:var(--stamp)} .dow span:last-child{color:var(--blue)}
+.grid{border-radius:12px;overflow:hidden;background-size:100% 100%;background-color:var(--cover);position:relative}
+.cell{aspect-ratio:1;max-width:100%;border:none;position:relative;background:var(--cover);box-shadow:inset 0 0 0 1.5px var(--surface);display:flex;align-items:flex-start;justify-content:flex-start;padding:5px 6px;font-family:var(--f-display);font-weight:700;font-size:13px;color:var(--muted);transition:background-color .55s ease}
+.cell:nth-child(odd){background:var(--cover-2)}
+.cell.pad{cursor:default;background-image:repeating-linear-gradient(135deg,transparent 0 6px,color-mix(in srgb,var(--line) 70%,transparent) 6px 7px)}
+.cell.future{cursor:default;opacity:.55}
+.cell.today{box-shadow:inset 0 0 0 1.5px var(--surface),inset 0 0 0 4px var(--stamp);color:var(--stamp)}
+.cell.today:not(.on)::after{content:"";position:absolute;right:7px;top:7px;width:7px;height:7px;border-radius:50%;background:var(--stamp);animation:pulse 1.4s infinite}
+.cell.on,.cell.pad.revealed{background-color:transparent!important;background-image:none}
+.cell.on{color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.55)}
+.mark{position:absolute;inset:18% 18% 14% 18%;display:grid;place-items:center;pointer-events:none}
+.mark svg{width:100%;height:100%;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))}
+.cell.pop .mark{animation:stamp .45s cubic-bezier(.2,1.6,.4,1)}
+.legend{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);gap:8px;flex-wrap:wrap}
+.complete{font-family:var(--f-display);font-weight:900;color:var(--good)}
+
+/* toast */
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:14px;font-weight:700;font-size:14px;display:flex;gap:12px;align-items:center;transition:.25s;max-width:calc(100% - 32px);z-index:10;pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.toast button{background:none;border:none;color:var(--stamp);font-weight:700;padding:0}
+.big{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;z-index:9}
+.big div{font-family:var(--f-display);font-weight:900;font-size:clamp(28px,9vw,44px);color:var(--stamp);background:var(--surface);border:4px solid var(--stamp);border-radius:24px;padding:14px 28px;transform:rotate(-6deg) scale(.6);opacity:0;transition:.35s cubic-bezier(.2,1.6,.4,1);text-align:center;line-height:1.3}
+.big div small{display:block;font-size:14px;color:var(--muted);font-weight:700}
+.big.show div{opacity:1;transform:rotate(-6deg) scale(1)}
+.spark{position:fixed;width:8px;height:8px;border-radius:50%;pointer-events:none;z-index:8;animation:fly .7s ease-out forwards}
+
+/* level */
+.lv{display:flex;align-items:center;gap:10px;padding-top:12px;border-top:1px dashed var(--line)}
+.lv-badge{font-family:var(--f-display);font-weight:900;font-size:13px;background:var(--ink);color:var(--surface);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.lv-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.lv-title{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.lv-bar{height:6px;border-radius:999px;background:var(--cover);overflow:hidden}
+.lv-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#F2B33D,#E2463E);transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.icon-btn{background:none;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;color:var(--muted)}
+.rare-row{display:flex;gap:12px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.rare-row b{font-family:var(--f-display);color:var(--ink);font-variant-numeric:tabular-nums}
+
+/* reveal */
+.reveal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 70%,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .2s}
+.reveal.show{opacity:1;pointer-events:auto}
+.reveal-in{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:0 16px}
+.reveal-stamp{width:min(52vw,220px);aspect-ratio:1;transform:scale(3) rotate(-25deg);opacity:0}
+.reveal.show .reveal-stamp{animation:slam .42s cubic-bezier(.3,1.5,.5,1) forwards}
+.reveal-stamp svg{width:100%;height:100%}
+.r-label{font-family:var(--f-display);font-weight:900;font-size:clamp(30px,9vw,46px);line-height:1.1;opacity:0;transform:translateY(10px)}
+.reveal.show .r-label{animation:rise .35s .38s forwards}
+.r-sub{font-weight:700;color:var(--muted);opacity:0}
+.reveal.show .r-sub{animation:rise .35s .55s forwards}
+.r-xp{font-family:var(--f-display);font-weight:900;font-size:22px;color:#E0A100;opacity:0}
+.reveal.show .r-xp{animation:rise .35s .7s forwards}
+.r-tap{font-size:12px;color:var(--muted);margin-top:10px;opacity:0}
+.reveal.show .r-tap{animation:rise .3s 1.2s forwards}
+.lv-r1{color:var(--stamp)} .lv-r2{color:#D99A00} .lv-r3{background:linear-gradient(90deg,#ff5f6d,#ffc371,#47e5bc,#5b8cff,#c86bff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.reveal.r3 .reveal-stamp svg{animation:spin 3s linear infinite .5s}
+body.shake .wrap{animation:shake .35s}
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:21}
+@keyframes slam{0%{transform:scale(3) rotate(-25deg);opacity:0}70%{opacity:1}100%{transform:scale(1) rotate(-8deg);opacity:1}}
+@keyframes rise{to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shake{20%{transform:translate(-6px,3px)}40%{transform:translate(5px,-4px)}60%{transform:translate(-4px,2px)}80%{transform:translate(3px,-1px)}}
+@keyframes pulse{50%{transform:scale(1.6);opacity:.4}}
+@keyframes stamp{0%{transform:scale(1.8) rotate(-20deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
+@keyframes fly{to{transform:translate(var(--dx),var(--dy)) scale(.3);opacity:0}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">つみあげ<b>スタンプ</b></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="save-note" id="saveNote"></span><button class="icon-btn" id="soundBtn" type="button">音 ON</button><button class="icon-btn" id="hapticBtn" type="button">振動 ON</button></div>
+  </div>
+
+  <section class="goal" id="goalView" hidden>
+    <div class="goal-head">
+      <div style="min-width:0">
+        <div class="eyebrow">わたしの目標</div>
+        <div class="goal-text" id="goalText"></div>
+      </div>
+      <button class="ghost" id="editBtn">編集</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="k" id="monthLabel">今月</span><span class="v num" id="mCount">0<small>/ 20日</small></span></div>
+      <div class="stat"><span class="k">連続</span><span class="v num fire" id="streak">0<small>日</small></span></div>
+      <div class="stat"><span class="k">最高記録</span><span class="v num" id="best">0<small>日</small></span></div>
+    </div>
+    <div class="bar" id="bar"><i></i></div>
+    <div class="bar-row"><span id="barLeft"></span><span id="barRight"></span></div>
+    <div class="lv">
+      <span class="lv-badge" id="lvBadge">Lv.1</span>
+      <div class="lv-mid">
+        <div class="lv-title"><span id="lvName"></span><span id="lvNext"></span></div>
+        <div class="lv-bar"><i id="lvFill"></i></div>
+      </div>
+    </div>
+    <div class="rare-row"><span>集めたスタンプ</span><span>ノーマル <b id="c1">0</b></span><span>レア <b id="c2">0</b></span><span>激レア <b id="c3">0</b></span></div>
+  </section>
+
+  <section class="goal" id="goalForm" hidden>
+    <div>
+      <div class="eyebrow">はじめに</div>
+      <div class="goal-text">何を続けたい？</div>
+    </div>
+    <form class="form" id="form">
+      <div>
+        <label for="goalInput">目標</label>
+        <input id="goalInput" maxlength="40" placeholder="例：毎日30分 英語を勉強する" required>
+      </div>
+      <div class="row">
+        <div>
+          <label for="targetInput">1か月に何日やる？</label>
+          <select id="targetInput">
+            <option value="10">10日</option><option value="15">15日</option>
+            <option value="20" selected>20日</option><option value="25">25日</option>
+            <option value="31">毎日</option>
+          </select>
+        </div>
+      </div>
+      <button class="cta" type="submit">はじめる</button>
+    </form>
+  </section>
+
+  <button class="cta" id="todayBtn" hidden></button>
+
+  <section class="cal" id="cal" hidden>
+    <div class="cal-head">
+      <div class="cal-title"><h2 id="calMonth"></h2><span id="calTheme"></span></div>
+      <div class="nav">
+        <button id="prev" aria-label="前の月">‹</button>
+        <button id="next" aria-label="次の月">›</button>
+      </div>
+    </div>
+    <div class="dow"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>
+    <div class="grid" id="grid"></div>
+    <div class="legend"><span id="remain"></span><span>マスを押すとスタンプ／もう一度押すと取り消し</span></div>
+  </section>
+</div>
+<div class="toast" id="toast"><span id="toastMsg"></span><button id="toastUndo" hidden>元に戻す</button></div>
+<div class="big" id="big"><div id="bigMsg"></div></div>
+<div class="reveal" id="reveal" role="dialog" aria-live="polite">
+  <div class="reveal-in">
+    <div class="reveal-stamp" id="rStamp"></div>
+    <div class="r-label" id="rLabel"></div>
+    <div class="r-sub" id="rSub"></div>
+    <div class="r-xp" id="rXp"></div>
+    <div class="r-tap">タップで閉じる</div>
+  </div>
+</div>
+<canvas id="confetti"></canvas>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="gGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE27A"/><stop offset=".5" stop-color="#E0A100"/><stop offset="1" stop-color="#B87900"/></linearGradient>
+  <linearGradient id="gRain" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5f6d"/><stop offset=".3" stop-color="#ffc371"/><stop offset=".55" stop-color="#47e5bc"/><stop offset=".8" stop-color="#5b8cff"/><stop offset="1" stop-color="#c86bff"/></linearGradient>
+</defs></svg>
+
+<script>
+const $=id=>document.getElementById(id);
+const STAMP_SVG='<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="rgba(255,255,255,.15)" stroke="#fff" stroke-width="3"/><path d="M12.5 20.5l5 5 10-11" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function stampSvg(r){
+  r=+r||1;
+  if(r===1) return '<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="rgba(210,60,53,.18)" stroke="#E2463E" stroke-width="3"/><circle cx="20" cy="20" r="12.5" fill="none" stroke="#E2463E" stroke-width="1.2" stroke-dasharray="2 2"/><path d="M12.5 20.5l5 5 10-11" fill="none" stroke="#E2463E" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const star="M20 7.5l3.6 7.6 8.3 1-6.1 5.7 1.6 8.2L20 25.9 12.6 30l1.6-8.2-6.1-5.7 8.3-1z";
+  if(r===2) return `<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17.5" fill="rgba(224,161,0,.22)" stroke="url(#gGold)" stroke-width="3.2"/><circle cx="20" cy="20" r="13" fill="none" stroke="#E0A100" stroke-width="1" stroke-dasharray="1.5 2"/><path d="${star}" fill="url(#gGold)" stroke="#fff6cc" stroke-width=".8"/></svg>`;
+  let rays="";for(let i=0;i<12;i++){const a=i/12*Math.PI*2;rays+=`<line x1="${20+Math.cos(a)*15}" y1="${20+Math.sin(a)*15}" x2="${20+Math.cos(a)*19}" y2="${20+Math.sin(a)*19}" stroke="url(#gRain)" stroke-width="2.2" stroke-linecap="round"/>`}
+  return `<svg viewBox="0 0 40 40">${rays}<circle cx="20" cy="20" r="13.5" fill="rgba(255,255,255,.25)" stroke="url(#gRain)" stroke-width="3"/><path d="M11 25l2-10 4.5 5L20 12l2.5 8 4.5-5 2 10z" fill="url(#gRain)" stroke="#fff" stroke-width=".9" stroke-linejoin="round"/><circle cx="20" cy="28.5" r="1.6" fill="#fff"/></svg>`;
+}
+const RAR={1:{name:"ノーマル",xp:10,cls:"lv-r1"},2:{name:"レア",xp:30,cls:"lv-r2"},3:{name:"激レア",xp:80,cls:"lv-r3"}};
+const TITLES=["はじめの一歩","見習い","がんばり屋","習慣の芽","コツコツ職人","継続の達人","積み上げマスター","伝説の努力家"];
+function xpTotal(){let x=0;for(const k in state.stamps){const r=+state.stamps[k];if(r)x+=RAR[r]?RAR[r].xp:10}return x}
+const need=n=>40+n*20; // xp to go from level n to n+1
+function levelOf(x){let n=1;while(x>=need(n)){x-=need(n);n++}return {n,into:x,need:need(n)}}
+function counts(){const c={1:0,2:0,3:0};for(const k in state.stamps){const r=+state.stamps[k];if(c[r]!==undefined)c[r]++}return c}
+let soundOn=true;try{soundOn=localStorage.getItem("tsumiage-sound")!=="off"}catch(e){}
+let AC=null;
+function tone(f,t0,d,type="sine",vol=.18){if(!AC)return;const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f,AC.currentTime+t0);
+  g.gain.setValueAtTime(0,AC.currentTime+t0);g.gain.linearRampToValueAtTime(vol,AC.currentTime+t0+.01);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+t0+d);o.connect(g).connect(AC.destination);o.start(AC.currentTime+t0);o.stop(AC.currentTime+t0+d+.05)}
+function sfx(r,lvUp){
+  if(!soundOn)return;
+  try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();AC.resume&&AC.resume();}catch(e){return}
+  tone(140,.3,.18,"triangle",.35); // thump, lands with the slam
+  const notes={1:[784,1047],2:[659,880,1175,1319],3:[523,659,784,1047,1319,1568,2093]}[r];
+  notes.forEach((f,i)=>tone(f,.58+i*.08,.35,"sine",.16)); // each note gets a matching haptic tick
+  if(lvUp)[523,659,784,1047].forEach((f,i)=>tone(f,1.0+i*.12,.45,"triangle",.14));
+}
+// ---------- haptics ----------
+// Short, crisp pulses timed to the slam and to each chime note. Long buzzes feel cheap; tight ticks feel premium.
+let hapticOn=true;try{hapticOn=localStorage.getItem("tsumiage-haptic")!=="off"}catch(e){}
+const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const hapLabel=(()=>{const l=document.createElement("label");l.setAttribute("aria-hidden","true");l.style.cssText="position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none";
+  const i=document.createElement("input");i.type="checkbox";i.id="hapticSwitch";i.setAttribute("switch","");i.tabIndex=-1;l.appendChild(i);document.body.appendChild(l);return l})();
+function tick(){ // one light tap; iOS 18+ Safari fires a system haptic when a switch toggles
+  if(!hapticOn)return;
+  if(isIOS){try{hapLabel.click()}catch(e){}return}
+  try{navigator.vibrate&&navigator.vibrate(10)}catch(e){}
+}
+function haptic(seq){ // seq: [[offsetMs,durationMs],...]
+  if(!hapticOn||!seq.length)return;
+  if(!isIOS&&navigator.vibrate){const pat=[];let t=0;for(const [at,d] of seq){if(pat.length)pat.push(Math.max(0,at-t));else if(at>0){setTimeout(()=>haptic(seq.map(([a,dd])=>[a-at,dd])),at);return}pat.push(d);t=at+d}
+    try{navigator.vibrate(pat)}catch(e){}return}
+  for(const [at,d] of seq){setTimeout(tick,at);if(d>=20)setTimeout(tick,at+45)} // strong beats = double tap on iOS
+}
+const HAPTIC={
+  1:[[300,24],[580,8],[660,10]],
+  2:[[300,28],[580,8],[660,8],[740,10],[820,14]],
+  3:[[300,32],[370,20],[580,8],[660,8],[740,8],[820,10],[900,10],[980,12],[1060,22]],
+  lvUp:[[1000,8],[1120,10],[1240,12],[1360,26]]
+};
+function rollRarity(){const s=streak();const p3=Math.min(.18,.06+s*.004),p2=Math.min(.38,.22+s*.006);const x=Math.random();return x<p3?3:x<p3+p2?2:1}
+// confetti
+const cv=$("confetti"),cx2=cv.getContext("2d");let parts=[],raf=0;
+function confetti(n,rainbow){if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;const dpr=Math.min(2,devicePixelRatio||1);cv.width=innerWidth*dpr;cv.height=innerHeight*dpr;cx2.setTransform(dpr,0,0,dpr,0,0);
+  const cols=rainbow?["#ff5f6d","#ffc371","#47e5bc","#5b8cff","#c86bff","#fff"]:["#E2463E","#F2B33D","#2C5BC4","#1F8A5B","#FFE27A"];
+  for(let i=0;i<n;i++)parts.push({x:innerWidth/2+(Math.random()-.5)*80,y:innerHeight*.42,vx:(Math.random()-.5)*14,vy:-Math.random()*14-4,r:Math.random()*6+4,c:cols[i%cols.length],a:Math.random()*6,va:(Math.random()-.5)*.4,life:0});
+  if(!raf)loop();}
+function loop(){cx2.clearRect(0,0,innerWidth,innerHeight);parts=parts.filter(p=>p.life<160&&p.y<innerHeight+40);
+  for(const p of parts){p.life++;p.vy+=.35;p.vx*=.985;p.x+=p.vx;p.y+=p.vy;p.a+=p.va;cx2.save();cx2.translate(p.x,p.y);cx2.rotate(p.a);cx2.globalAlpha=Math.max(0,1-p.life/160);cx2.fillStyle=p.c;cx2.fillRect(-p.r/2,-p.r/4,p.r,p.r/2);cx2.restore()}
+  raf=parts.length?requestAnimationFrame(loop):0;if(!raf)cx2.clearRect(0,0,innerWidth,innerHeight);}
+
+// ---------- state ----------
+let state={goal:"",target:20,stamps:{}};
+let store=null, docRef=null, saveTimer=null;
+const pad2=n=>String(n).padStart(2,"0");
+const key=(y,m,d)=>`${y}-${pad2(m+1)}-${pad2(d)}`;
+const now=new Date(); const T={y:now.getFullYear(),m:now.getMonth(),d:now.getDate()};
+const todayKey=key(T.y,T.m,T.d);
+let view={y:T.y,m:T.m};
+
+function lsGet(){try{return JSON.parse(localStorage.getItem("tsumiage")||"null")}catch(e){return null}}
+function lsSet(){try{localStorage.setItem("tsumiage",JSON.stringify(state))}catch(e){}}
+function save(){
+  lsSet();
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async()=>{
+    if(!docRef) return;
+    try{await docRef.set({goal:state.goal,target:state.target,stamps:state.stamps});}
+    catch(e){$("saveNote").textContent="この端末にだけ保存中";docRef=null;}
+  },400);
+}
+
+// ---------- monthly pictures ----------
+const THEMES=[
+ {name:"初日の出",sky:["#1d2a5b","#f5a35c"],L:[["sun","#ffd27a",.5,.6,.17],["mountains",["#2a3566","#1a2148"],2]]},
+ {name:"雪の夜",sky:["#0f1830","#3a4f86"],L:[["moon","#f4f1dc",.76,.22,.09],["mountains",["#b9c6e2","#e9eef8"],2],["snow",170]]},
+ {name:"桜並木",sky:["#fde3ea","#fbc4d4"],L:[["hills",["#9cc59a","#7fb27f"]],["petals",["#f39ab4","#fbd0dc","#ffffff"],150]]},
+ {name:"春の野原",sky:["#bfe3ff","#eaf7ff"],L:[["sun","#fff1a8",.2,.2,.11],["hills",["#a7d88a","#7cc26a"]],["flowers",["#ffd84d","#ff8fb1","#ffffff"],110]]},
+ {name:"新緑",sky:["#e2f5d8","#a8dba0"],L:[["leaves",["#4f9d5a","#6fbf6a","#3b7f4a","#9bd88a"],190]]},
+ {name:"紫陽花",sky:["#c9d2e6","#e7ebf4"],L:[["clusters",["#7b8de0","#a58ae0","#5f9ad8","#d9a3e0"],16],["rain",130]]},
+ {name:"夏の海",sky:["#7fd0f5","#d8f3ff"],L:[["sun","#fff6c9",.8,.18,.1],["waves",["#5ab6e6","#2f8fd0","#1f6fb0"],6]]},
+ {name:"夏祭りの花火",sky:["#0b1026","#1d2450"],L:[["stars",70],["fireworks",["#ff6b6b","#ffd166","#6ee7f7","#c7a6ff"],6]]},
+ {name:"お月見",sky:["#141c3d","#3e3f7a"],L:[["stars",130],["moon","#fff3c4",.68,.3,.15],["grass","#151a30",70]]},
+ {name:"紅葉の山",sky:["#ffd9a8","#fff1dc"],L:[["mountains",["#c4502d","#9b3a22"],2],["leaves",["#e0532b","#f08c2e","#c43a2a","#f2b33d"],130]]},
+ {name:"夕焼けの峠",sky:["#3b2a5c","#f08a5d"],L:[["sun","#ffcf73",.5,.68,.15],["mountains",["#4a2f55","#2b1c3a"],3]]},
+ {name:"冬の星空",sky:["#070b1d","#1b2550"],L:[["stars",240],["trees","#0e1a2e"]]}
+];
+function rng(s){return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296}}
+function paint(w,h,y,m){
+  const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");
+  const th=THEMES[m],R=rng(y*100+m+7);
+  const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,th.sky[0]);g.addColorStop(1,th.sky[1]);x.fillStyle=g;x.fillRect(0,0,w,h);
+  const pick=a=>a[Math.floor(R()*a.length)];
+  for(const [t,...a] of th.L){
+    if(t==="sun"||t==="moon"){const [col,px,py,pr]=a;const r=pr*w,cx=px*w,cy=py*h;
+      const gl=x.createRadialGradient(cx,cy,r*.5,cx,cy,r*2.6);gl.addColorStop(0,col+"aa");gl.addColorStop(1,col+"00");x.fillStyle=gl;x.fillRect(0,0,w,h);
+      x.fillStyle=col;x.beginPath();x.arc(cx,cy,r,0,7);x.fill();}
+    if(t==="mountains"){const [cols,n]=a;for(let i=0;i<n;i++){x.fillStyle=cols[i%cols.length];x.beginPath();const base=h*(.55+i*.14);x.moveTo(0,h);x.lineTo(0,base);
+      let px=0;while(px<w){const pw=w*(.12+R()*.22);x.lineTo(px+pw/2,base-h*(.12+R()*.2));px+=pw;x.lineTo(px,base-h*R()*.05);}x.lineTo(w,h);x.fill();}}
+    if(t==="hills"){a[0].forEach((col,i)=>{x.fillStyle=col;x.beginPath();x.moveTo(0,h);const b=h*(.62+i*.13),ph=R()*6;
+      for(let px=0;px<=w;px+=w/40)x.lineTo(px,b+Math.sin(px/w*4+ph)*h*.05);x.lineTo(w,h);x.fill();});}
+    if(t==="petals"){const [cols,n]=a;for(let i=0;i<n;i++){x.save();x.translate(R()*w,R()*h);x.rotate(R()*7);x.fillStyle=pick(cols);x.globalAlpha=.85;x.beginPath();x.ellipse(0,0,w*.012+R()*w*.01,w*.007,0,0,7);x.fill();x.restore();}}
+    if(t==="flowers"){const [cols,n]=a;for(let i=0;i<n;i++){const fx=R()*w,fy=h*(.62+R()*.38),r=w*(.006+R()*.008);x.fillStyle=pick(cols);
+      for(let k=0;k<5;k++){x.beginPath();x.arc(fx+Math.cos(k*1.26)*r,fy+Math.sin(k*1.26)*r,r*.8,0,7);x.fill();}x.fillStyle="#ffcf3a";x.beginPath();x.arc(fx,fy,r*.6,0,7);x.fill();}}
+    if(t==="leaves"){const [cols,n]=a;for(let i=0;i<n;i++){x.save();x.translate(R()*w,R()*h);x.rotate(R()*7);x.fillStyle=pick(cols);const s=w*(.02+R()*.025);
+      x.beginPath();x.moveTo(0,-s);x.quadraticCurveTo(s*.7,0,0,s);x.quadraticCurveTo(-s*.7,0,0,-s);x.fill();x.restore();}}
+    if(t==="clusters"){const [cols,n]=a;for(let i=0;i<n;i++){const cx=R()*w,cy=h*(.2+R()*.8),cr=w*(.06+R()*.05),col=pick(cols);
+      for(let k=0;k<40;k++){const an=R()*7,d=Math.sqrt(R())*cr;x.fillStyle=col;x.globalAlpha=.6+R()*.4;x.beginPath();x.arc(cx+Math.cos(an)*d,cy+Math.sin(an)*d,cr*.16,0,7);x.fill();}x.globalAlpha=1;}}
+    if(t==="rain"){x.strokeStyle="rgba(255,255,255,.7)";x.lineWidth=Math.max(1,w*.002);for(let i=0;i<a[0];i++){const rx=R()*w,ry=R()*h;x.beginPath();x.moveTo(rx,ry);x.lineTo(rx-w*.01,ry+h*.04);x.stroke();}}
+    if(t==="waves"){const [cols,n]=a;for(let i=0;i<n;i++){x.fillStyle=cols[i%cols.length];x.beginPath();const b=h*(.45+i*.09),ph=R()*6;x.moveTo(0,h);
+      for(let px=0;px<=w;px+=w/60)x.lineTo(px,b+Math.sin(px/w*10+ph)*h*.015);x.lineTo(w,h);x.fill();}}
+    if(t==="stars"){for(let i=0;i<a[0];i++){x.fillStyle=`rgba(255,255,255,${.4+R()*.6})`;x.beginPath();x.arc(R()*w,R()*h*.85,R()*w*.004+.6,0,7);x.fill();}}
+    if(t==="snow"){for(let i=0;i<a[0];i++){x.fillStyle="rgba(255,255,255,.9)";x.beginPath();x.arc(R()*w,R()*h,R()*w*.006+1,0,7);x.fill();}}
+    if(t==="fireworks"){const [cols,n]=a;for(let i=0;i<n;i++){const fx=w*(.12+R()*.76),fy=h*(.12+R()*.5),fr=w*(.1+R()*.1),col=pick(cols);x.strokeStyle=col;x.lineWidth=Math.max(1.5,w*.004);x.lineCap="round";
+      for(let k=0;k<28;k++){const an=k/28*Math.PI*2;x.beginPath();x.moveTo(fx+Math.cos(an)*fr*.3,fy+Math.sin(an)*fr*.3);x.lineTo(fx+Math.cos(an)*fr,fy+Math.sin(an)*fr);x.stroke();}}}
+    if(t==="grass"){x.fillStyle=a[0];x.fillRect(0,h*.86,w,h*.14);x.strokeStyle=a[0];x.lineWidth=Math.max(2,w*.006);
+      for(let i=0;i<a[1];i++){const gx=R()*w;x.beginPath();x.moveTo(gx,h*.88);x.quadraticCurveTo(gx+w*.02,h*.75,gx+w*(.01+R()*.04),h*(.6+R()*.15));x.stroke();}}
+    if(t==="trees"){x.fillStyle=a[0];x.fillRect(0,h*.88,w,h*.12);let tx=0;while(tx<w){const tw=w*(.07+R()*.07),th2=h*(.18+R()*.18);x.beginPath();x.moveTo(tx,h*.9);x.lineTo(tx+tw/2,h*.9-th2);x.lineTo(tx+tw,h*.9);x.fill();tx+=tw*.75;}}
+  }
+  return c.toDataURL("image/png");
+}
+
+// ---------- logic ----------
+const daysIn=(y,m)=>new Date(y,m+1,0).getDate();
+const isOn=k=>!!state.stamps[k];
+function monthCount(y,m){let n=0;for(let d=1;d<=daysIn(y,m);d++)if(isOn(key(y,m,d)))n++;return n}
+function streak(){let d=new Date(T.y,T.m,T.d);if(!isOn(todayKey))d.setDate(d.getDate()-1);let n=0;
+  while(isOn(key(d.getFullYear(),d.getMonth(),d.getDate()))){n++;d.setDate(d.getDate()-1)}return n}
+function bestStreak(){const ks=Object.keys(state.stamps).filter(k=>state.stamps[k]).sort();let best=0,run=0,prev=null;
+  for(const k of ks){const t=new Date(k+"T00:00:00");run=(prev&&(t-prev)/864e5===1)?run+1:1;best=Math.max(best,run);prev=t}return best}
+
+function render(){
+  const hasGoal=!!state.goal;
+  $("goalForm").hidden=hasGoal;$("goalView").hidden=!hasGoal;$("todayBtn").hidden=!hasGoal;$("cal").hidden=!hasGoal;
+  if(!hasGoal)return;
+  $("goalText").textContent=state.goal;
+  const tgt=Math.min(state.target,daysIn(T.y,T.m)),mc=monthCount(T.y,T.m);
+  $("monthLabel").textContent=`${T.m+1}月の達成`;
+  $("mCount").innerHTML=`${mc}<small>/ ${tgt}日</small>`;
+  $("streak").innerHTML=`${streak()}<small>日</small>`;
+  $("best").innerHTML=`${bestStreak()}<small>日</small>`;
+  const pct=Math.min(100,mc/tgt*100);$("bar").querySelector("i").style.width=pct+"%";$("bar").classList.toggle("done",mc>=tgt);
+  $("barLeft").textContent=mc>=tgt?"今月の目標を達成しました":`目標まであと${tgt-mc}日`;
+  $("barRight").textContent=`${Math.round(pct)}%`;
+  const tb=$("todayBtn");
+  if(isOn(todayKey)){tb.className="cta done";tb.innerHTML="今日のスタンプは押しました";}
+  else{tb.className="cta";tb.innerHTML=STAMP_SVG+"今日のスタンプを押す";}
+  const L=levelOf(xpTotal());$("lvBadge").textContent=`Lv.${L.n}`;$("lvName").textContent=TITLES[Math.min(TITLES.length-1,Math.floor((L.n-1)/2))];
+  $("lvNext").textContent=`次のレベルまで ${L.need-L.into} XP`;$("lvFill").style.width=(L.into/L.need*100)+"%";
+  const c=counts();$("c1").textContent=c[1];$("c2").textContent=c[2];$("c3").textContent=c[3];
+  renderCal();
+}
+
+let picKey="";
+function renderCal(){
+  const {y,m}=view,dn=daysIn(y,m),first=new Date(y,m,1).getDay(),total=Math.ceil((first+dn)/7)*7;
+  const th=THEMES[m],mc=monthCount(y,m),complete=mc===dn;
+  $("calMonth").textContent=`${y===T.y?"":y+"年 "}${m+1}月`;
+  $("calTheme").textContent=`今月のパズル「${th.name}」`;
+  $("next").disabled=(y===T.y&&m===T.m);
+  const g=$("grid");g.innerHTML="";
+  for(let i=0;i<total;i++){
+    const d=i-first+1,b=document.createElement("button");b.className="cell";b.type="button";
+    if(d<1||d>dn){b.classList.add("pad");if(complete)b.classList.add("revealed");b.tabIndex=-1;b.setAttribute("aria-hidden","true");}
+    else{const k=key(y,m,d);b.dataset.k=k;b.textContent=d;
+      const fut=new Date(y,m,d)>new Date(T.y,T.m,T.d);
+      if(fut){b.classList.add("future");b.disabled=true}
+      if(k===todayKey)b.classList.add("today");
+      if(isOn(k)){b.classList.add("on");b.insertAdjacentHTML("beforeend",`<span class="mark">${stampSvg(state.stamps[k])}</span>`)}
+      b.setAttribute("aria-label",`${m+1}月${d}日${isOn(k)?" スタンプ済み":""}`);
+      b.onclick=()=>toggle(k,b);}
+    g.appendChild(b);
+  }
+  $("remain").innerHTML=complete?`<span class="complete">パズル完成！</span>`:`あと${dn-mc}マスで「${th.name}」が完成`;
+  const pk=`${y}-${m}-${g.clientWidth}`;
+  if(pk!==picKey&&g.clientWidth){picKey=pk;const dpr=Math.min(2,window.devicePixelRatio||1);
+    g.style.backgroundImage=`url(${paint(Math.round(g.clientWidth*dpr),Math.round(g.clientHeight*dpr),y,m)})`;}
+}
+
+const CHEERS=["いいね、今日も積み上がった","その調子","1マスずつ、確実に","今日の自分に拍手","続けてる人だけが見られる景色","えらい。本当に"];
+function toggle(k,btn){
+  if(isOn(k)){tick();delete state.stamps[k];save();render();
+    toast("スタンプを取り消しました",()=>{state.stamps[k]=1;save();render();});return;}
+  const lvBefore=levelOf(xpTotal()).n;
+  const r=k===todayKey?rollRarity():1; // only today's stamp is a draw; back-filled days get a normal stamp
+  state.stamps[k]=r;save();render();
+  const cell=document.querySelector(`.cell[data-k="${k}"]`);
+  if(cell){cell.classList.add("pop");burst(cell);}
+  if(k!==todayKey){haptic([[0,14],[80,8]]);toast("押し忘れた日にスタンプを押しました");return;}
+  const [yy,mm]=k.split("-").map(Number),y=yy,m=mm-1;
+  const dn=daysIn(y,m),mc=monthCount(y,m),tgt=Math.min(state.target,dn),st=streak();
+  const lvAfter=levelOf(xpTotal()).n,lvUp=lvAfter>lvBefore;
+  let sub=CHEERS[Math.floor(Math.random()*CHEERS.length)];
+  if(mc===dn) sub=`パズル「${THEMES[m].name}」完成！`;
+  else if(mc===tgt) sub=`今月の目標 ${tgt}日 達成！`;
+  else if([3,7,14,21,30,50,100].includes(st)) sub=`${st}日連続！`;
+  else if(st>=2) sub=`${st}日連続中。${sub}`;
+  showReveal(r,sub,`+${RAR[r].xp} XP`+(lvUp?`　レベルアップ！ Lv.${lvAfter}`:""),lvUp);
+}
+let rvT;
+function showReveal(r,sub,xp,lvUp){
+  const el=$("reveal");el.classList.remove("show","r3");void el.offsetWidth;
+  $("rStamp").innerHTML=stampSvg(r);
+  $("rLabel").className="r-label "+RAR[r].cls;$("rLabel").textContent=r===1?"スタンプ GET":`${RAR[r].name}スタンプ！`;
+  $("rSub").textContent=sub;$("rXp").textContent=xp;
+  if(r===3)el.classList.add("r3");
+  el.classList.add("show");
+  tick(); // press
+  haptic(HAPTIC[r]);if(lvUp)haptic(HAPTIC.lvUp);
+  setTimeout(()=>{document.body.classList.add("shake");
+    confetti(r===3?220:r===2?120:lvUp?100:60,r===3);setTimeout(()=>document.body.classList.remove("shake"),400);},300);
+  if(lvUp)setTimeout(()=>confetti(120,true),1000);
+  sfx(r,lvUp);
+  clearTimeout(rvT);rvT=setTimeout(()=>el.classList.remove("show"),r===3?4200:3000);
+}
+$("reveal").onclick=()=>{clearTimeout(rvT);$("reveal").classList.remove("show")};
+$("soundBtn").onclick=()=>{soundOn=!soundOn;$("soundBtn").textContent=soundOn?"音 ON":"音 OFF";try{localStorage.setItem("tsumiage-sound",soundOn?"on":"off")}catch(e){}};
+$("soundBtn").textContent=soundOn?"音 ON":"音 OFF";
+$("hapticBtn").onclick=()=>{hapticOn=!hapticOn;$("hapticBtn").textContent=hapticOn?"振動 ON":"振動 OFF";try{localStorage.setItem("tsumiage-haptic",hapticOn?"on":"off")}catch(e){}if(hapticOn)haptic([[0,12],[90,20]]);};
+$("hapticBtn").textContent=hapticOn?"振動 ON":"振動 OFF";
+function burst(el){if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;const r=el.getBoundingClientRect(),cols=["#E2463E","#F2B33D","#2C5BC4","#1F8A5B"];
+  for(let i=0;i<14;i++){const s=document.createElement("span");s.className="spark";s.style.left=r.left+r.width/2+"px";s.style.top=r.top+r.height/2+"px";s.style.background=cols[i%4];
+    const a=i/14*Math.PI*2,d=40+Math.random()*30;s.style.setProperty("--dx",Math.cos(a)*d+"px");s.style.setProperty("--dy",Math.sin(a)*d+"px");document.body.appendChild(s);setTimeout(()=>s.remove(),750);}}
+let tT;
+function toast(msg,undo){const t=$("toast");$("toastMsg").textContent=msg;const u=$("toastUndo");u.hidden=!undo;u.onclick=()=>{undo&&undo();t.classList.remove("show")};
+  t.classList.add("show");clearTimeout(tT);tT=setTimeout(()=>t.classList.remove("show"),undo?4000:2200);}
+function big(a,b){const el=$("big");$("bigMsg").innerHTML="";$("bigMsg").append(a);const s=document.createElement("small");s.textContent=b;$("bigMsg").append(s);
+  el.classList.add("show");setTimeout(()=>el.classList.remove("show"),1800);}
+
+// ---------- events ----------
+$("todayBtn").onclick=()=>{if(isOn(todayKey))return;view={y:T.y,m:T.m};toggle(todayKey);};
+$("editBtn").onclick=()=>{$("goalInput").value=state.goal;$("targetInput").value=String(state.target);$("goalForm").hidden=false;$("goalView").hidden=true;$("goalInput").focus();};
+$("form").onsubmit=e=>{e.preventDefault();const v=$("goalInput").value.trim();if(!v)return;state.goal=v;state.target=+$("targetInput").value;save();render();};
+$("prev").onclick=()=>{view=view.m===0?{y:view.y-1,m:11}:{y:view.y,m:view.m-1};renderCal();};
+$("next").onclick=()=>{if(view.y===T.y&&view.m===T.m)return;view=view.m===11?{y:view.y+1,m:0}:{y:view.y,m:view.m+1};renderCal();};
+let rT;addEventListener("resize",()=>{clearTimeout(rT);rT=setTimeout(renderCal,200)});
+
+// ---------- boot ----------
+const local=lsGet();if(local)state=Object.assign(state,local);
+render();
+(async()=>{
+  try{
+    const [db,user]=await Promise.all([window.claude?.use?.("db"),window.claude?.use?.("user")]);
+    const id=user?await user.id():null;
+    if(!db||!id){$("saveNote").textContent="";return;}
+    docRef=db.doc("data/users/"+id+"/tracker");
+    const snap=await docRef.get();
+    if(snap.exists){const d=snap.data();state={goal:d.goal||"",target:d.target||20,stamps:Object.assign({},d.stamps||{})};lsSet();render();}
+    else if(state.goal){save();}
+  }catch(e){$("saveNote").textContent="";docRef=null;}
+})();
+</script>
+
+<div id="installTip" hidden style="position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);border-radius:14px;padding:12px 14px;font-size:13px;display:flex;gap:10px;align-items:center;z-index:30">
+  <span style="flex:1">共有ボタンから「ホーム画面に追加」すると、アプリのように使えて記録も消えにくくなります</span>
+  <button id="installClose" type="button" style="background:none;border:none;color:var(--bg);font-weight:700">閉じる</button>
+</div>
+<script>
+(function(){
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+  var ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  var standalone=window.navigator.standalone||matchMedia("(display-mode: standalone)").matches;
+  var seen=false;try{seen=localStorage.getItem("tsumiage-tip")==="1"}catch(e){}
+  if(ios&&!standalone&&!seen){var t=document.getElementById("installTip");t.hidden=false;
+    document.getElementById("installClose").onclick=function(){t.hidden=true;try{localStorage.setItem("tsumiage-tip","1")}catch(e){}};}
+  if("serviceWorker" in navigator)addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});
+})();
+</script>
+</body>
+</html>
